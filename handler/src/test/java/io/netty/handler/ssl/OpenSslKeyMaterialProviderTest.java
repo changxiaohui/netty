@@ -138,7 +138,7 @@ public class OpenSslKeyMaterialProviderTest {
         assertNotNull(certChain);
         PemEncoded pemKey = null;
         long pkeyBio = 0L;
-        PrivateKey sslPrivateKey = null;
+        OpenSslPrivateKey sslPrivateKey;
         try {
             pemKey = PemPrivateKey.toPEM(ByteBufAllocator.DEFAULT, true, privateKey);
             pkeyBio = ReferenceCountedOpenSslContext.toBIO(ByteBufAllocator.DEFAULT, pemKey.retain());
@@ -156,17 +156,18 @@ public class OpenSslKeyMaterialProviderTest {
                 null);
         OpenSslKeyMaterial material = provider.chooseKeyMaterial(ByteBufAllocator.DEFAULT, keyAlias);
         assertNotNull(material);
-        // Key material should share refcount with the sslPrivateKey.
-        assertEquals(2, ReferenceCountUtil.refCnt(sslPrivateKey));
-        assertEquals(2, material.refCnt());
-        material.release();
-        assertEquals(1, ReferenceCountUtil.refCnt(sslPrivateKey));
+        assertEquals(2, sslPrivateKey.refCnt());
+        assertEquals(1, material.refCnt());
+        assertTrue(material.release());
+        assertEquals(1, sslPrivateKey.refCnt());
         // Can get material multiple times from the same key
         material = provider.chooseKeyMaterial(ByteBufAllocator.DEFAULT, keyAlias);
         assertNotNull(material);
-        assertEquals(2, ReferenceCountUtil.refCnt(sslPrivateKey));
-        material.release();
-        ReferenceCountUtil.release(sslPrivateKey);
-        assertEquals(0, ReferenceCountUtil.refCnt(sslPrivateKey));
+        assertEquals(2, sslPrivateKey.refCnt());
+        assertTrue(material.release());
+        assertTrue(sslPrivateKey.release());
+        assertEquals(0, sslPrivateKey.refCnt());
+        assertEquals(0, material.refCnt());
+        assertEquals(0, ((OpenSslPrivateKey.OpenSslPrivateKeyMaterial) material).certificateChain);
     }
 }
